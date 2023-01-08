@@ -1,0 +1,3 @@
+docker save [image] > [path (F:/my-container.tar)]
+
+docker save busybox:latest > F:/my-python-container.tar

@@ -1,0 +1,220 @@
+version: '3.2'
+services: 
+    prometheus:
+        image: prom/prometheus:latest
+        container_name: prometheus
+        hostname: prometheus
+        ports:
+            - 9090:9090
+        networks:
+            - monitoring
+        command:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/etc/prometheus/console_libraries'
+            - '--web.console.templates=/etc/prometheus/consoles'
+            - '--web.enable-lifecycle'
+        volumes:
+            - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - ./prometheus_data:/prometheus
+        depends_on:
+            - cadvisor
+        environment:
+           TZ: "Europe/Moscow"
+        networks:
+          - default    
+    
+    grafana:
+        image: grafana/grafana-enterprise:latest
+        container_name: grafana
+        user: root
+        ports:
+          - 3000:3000
+        volumes:
+            - ./grafana:/var/lib/grafana
+            - ./grafana/provisioning/:/etc/grafana/provisioning/       
+        hostname: grafana
+        restart: unless-stopped
+        environment:
+            TZ: "Europe/Moscow"
+        depends_on:
+            - prometheus
+        networks:
+            - monitoring
+    
+    cadvisor:
+        image: google/cadvisor:latest
+        container_name: cadvisor
+        ports:
+            - 8888:8080
+        networks: 
+            - monitoring
+        volumes: 
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+    
+    elasticsearch:
+        image: elasticsearch:7.6.1
+        container_name: elasticsearch
+        ports: 
+            - 9200:9200
+            - 9300:9300
+        networks: 
+            - monitoring
+        environment:      
+            - discovery.type=single-node
+    
+    logstash:
+        image: docker.elastic.co/logstash/logstash:7.6.1
+        container_name: logstash
+        ports:
+            - 5000:5000
+            - 9600:9600
+            - 12201:12201/udp
+        networks: 
+            - monitoring
+        volumes: 
+            - ./logstash/pipelines:/usr/share/logstash/pipeline
+        depends_on: 
+            -  elasticsearch
+    
+    kibana:
+        image: docker.elastic.co/kibana/kibana:7.6.1
+        container_name: kibana
+        ports: 
+            - 5601:5601
+        networks: 
+            - monitoring
+        depends_on: 
+            - logstash
+
+    postgres-keycloak:
+        image: postgres:latest
+        container_name: postgres-keycloak
+        ports: 
+            - 5432:5432
+        networks: 
+            - monitoring
+        environment: 
+            - POSTGRES_USER=user
+            - POSTGRES_PASSWORD=pass
+            - POSTGRES_DB=db
+            - PGDATA=/var/lib/postgresql/data/pgdata-keycloak
+        volumes:
+            - ../2. Init Database:/docker-entrypoint-initdb.d
+            - .:/var/lib/postgresql/data
+        networks:
+            - monitoring
+            
+    postgres-main-service:
+        image: postgres:latest
+        container_name: postgres-main-service
+        ports: 
+            - 5433:5432
+        networks: 
+            - monitoring
+        environment: 
+            - POSTGRES_USER=user
+            - POSTGRES_PASSWORD=pass
+            - POSTGRES_DB=db
+            - PGDATA=/var/lib/postgresql/data/pgdata-main-service
+        volumes:
+            - .:/var/lib/postgresql/data
+        networks:
+            - monitoring
+            
+    postgres-timesheet-service:
+        image: postgres:latest
+        container_name: postgres-timesheet-service
+        ports: 
+            - 5434:5432
+        networks: 
+            - monitoring
+        environment: 
+            - POSTGRES_USER=user
+            - POSTGRES_PASSWORD=pass
+            - POSTGRES_DB=db
+            - PGDATA=/var/lib/postgresql/data/pgdata-timesheet-service
+        volumes:
+            - .:/var/lib/postgresql/data
+        networks:
+            - monitoring  
+    
+    keycloak:
+        image: quay.io/keycloak/keycloak:16.1.0
+        container_name: keycloak-main
+        ports:
+            - 8180:8080
+            - 8543:8443
+        depends_on:
+            - postgres-keycloak   
+        environment:
+           - KEYCLOAK_USER=admin
+           - KEYCLOAK_PASSWORD=admin
+           - DB_VENDOR=postgres
+           - DB_ADDR=postgres-keycloak
+           - DB_DATABASE=db
+           - DB_USER=user
+           - DB_PASSWORD=pass
+        restart: unless-stopped
+        networks:
+            - monitoring
+
+    consul:
+        image: consul:1.14
+        hostname: consul
+        volumes:
+          - ./consul/consul.d:/etc/consul.d
+          - ./consul/server.json:/consul/config/server.json:ro
+        ports:
+          - 8500:8500
+          - 8501:8501
+        networks:
+            - monitoring  
+    main-service:
+        container_name: main-service
+        image: green/main-service:1.0.0-SNAPSHOT
+        ports:
+            - 8080:8080
+        environment:
+            - APP_PORT=8080
+        depends_on: 
+            - postgres-main-service
+            - keycloak
+        networks:
+            - monitoring
+            
+    timesheet-service:
+        container_name: timesheet-service
+        image: green/timesheet-service:1.0.0-SNAPSHOT
+        ports:
+            - 8070:8070
+        environment:
+            - APP_PORT=8070
+        depends_on: 
+            - postgres-timesheet-service
+            - keycloak
+        networks:
+            - monitoring            
+
+    nginx-vue:
+        container_name: nginx-vue
+        image: green/nginx-vue:dev
+        restart: unless-stopped
+        volumes:
+          - ./nginx/conf:/etc/nginx/conf.d
+          - ./nginx/templates:/etc/consul-templates
+        ports:
+          - 8081:80   
+        environment:
+            - MAIN_SERVICE_IP=192.168.0.103:8081
+            - TIMESHEET_SERVICE_IP=192.168.0.103:8081
+            - KEYCLOAK_IP=192.168.0.103:8180            
+        networks:
+            - monitoring
+            
+networks: 
+    monitoring:
+        driver: bridge

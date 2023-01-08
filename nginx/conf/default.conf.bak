@@ -1,0 +1,30 @@
+server {
+    listen 80;
+
+    root /usr/share/nginx/html;
+    try_files $uri $uri/ /index.html;
+
+	location / {
+	  root /usr/share/nginx/html;
+      index  index.html;
+      try_files $uri $uri/ /index.html;
+    }
+    location /main-service {
+    	rewrite /main-service/(.*)  /$1  break;
+		
+        proxy_pass         http://192.168.0.103:8080;
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+    }
+	location /timesheet-service {
+    	rewrite /timesheet-service/(.*)  /$1  break;
+		
+        proxy_pass         http://192.168.0.103:8090;
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+    }
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+      root   /usr/share/nginx/html;
+    }
+}
