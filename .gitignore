@@ -2,4 +2,4 @@ pgdata-keycloak
 pgdata-main-service
 pgdata-timesheet-service
 prometheus_data
-nginx/conf/app.conf
+nginx\conf\app.conf
