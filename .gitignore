@@ -3,3 +3,4 @@ pgdata-main-service
 pgdata-timesheet-service
 prometheus_data
 nginx\conf\app.conf
+grafana\grafana.db
