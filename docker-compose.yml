@@ -29,7 +29,7 @@ services:
         container_name: grafana
         user: root
         ports:
-          - 3000:3000
+            - 300:3000
         volumes:
             - ./grafana:/var/lib/grafana
             - ./grafana/provisioning/:/etc/grafana/provisioning/       

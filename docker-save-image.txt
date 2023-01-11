@@ -1,3 +1,5 @@
 docker save [image] > [path (F:/my-container.tar)]
 
+docker save green/main-service:1.0.0-SNAPSHOT > F:/main-service.tar
+
 docker save busybox:latest > F:/my-python-container.tar

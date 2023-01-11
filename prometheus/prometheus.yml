@@ -6,17 +6,9 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
-  - job_name: 'hibernate'
-    static_configs:
-      - targets: ['hibernate:8080']
-  - job_name: application
+  - job_name: 'consul-prometheus'
     metrics_path: '/q/metrics'
-    static_configs:
-      - targets: ['192.168.0.103:8080']
-  - job_name: 'consumer'
-    static_configs:
-      - targets: ['consumer:8080']
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
+    consul_sd_configs:
+      - server: '192.168.0.103:8500'
+        services: []      
 # end::adocPrometheus[]
