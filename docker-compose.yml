@@ -6,8 +6,6 @@ services:
         hostname: prometheus
         ports:
             - 9090:9090
-        networks:
-            - monitoring
         command:
             - --config.file=/etc/prometheus/prometheus.yml
             - '--storage.tsdb.path=/prometheus'
@@ -22,7 +20,7 @@ services:
         environment:
            TZ: "Europe/Moscow"
         networks:
-          - default    
+          - monitoring    
     
     grafana:
         image: grafana/grafana-enterprise:latest
